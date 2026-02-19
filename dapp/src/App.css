@@ -1,0 +1,28 @@
+/* CertChain — global overrides (Tailwind handles most styling) */
+
+/* ── Smooth scroll for the entire page ── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Custom scrollbar for dark landing page ── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0b1120;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* ── Selection color matching the theme ── */
+::selection {
+  background: rgba(6, 182, 212, 0.3);
+  color: #fff;
+}
+
