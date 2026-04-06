@@ -4,7 +4,7 @@
 
 ### Decentralized Certificate Verification System
 
-A hybrid **on-chain / off-chain** DApp that lets administrators issue tamper-proof academic certificates and allows anyone to verify them trustlessly — powered by Ethereum, React, and a local Express backend.
+A hybrid **on-chain / off-chain** DApp that lets administrators issue tamper-proof academic certificates and allows anyone to verify them trustlessly — powered by Ethereum, React, and IPFS-backed decentralized storage via Pinata.
 
 [![Solidity](https://img.shields.io/badge/Solidity-^0.8.20-363636?logo=solidity)](https://soliditylang.org/)
 [![Hardhat](https://img.shields.io/badge/Hardhat-2.x-FFF100?logo=hardhat)](https://hardhat.org/)
@@ -27,11 +27,12 @@ A hybrid **on-chain / off-chain** DApp that lets administrators issue tamper-pro
 5. [Tech Stack](#-tech-stack)
 6. [Project Structure](#-project-structure)
 7. [Installation & Setup](#-installation--setup)
-8. [User Manual](#-user-manual)
-9. [API Documentation](#-api-documentation)
-10. [Smart Contract Reference](#-smart-contract-reference)
-11. [Design System](#-design-system)
-12. [License](#-license)
+8. [IPFS Integration & Pinata Pinning Strategy](#-ipfs-integration--pinata-pinning-strategy)
+9. [User Manual](#-user-manual)
+10. [API Documentation](#-api-documentation)
+11. [Smart Contract Reference](#-smart-contract-reference)
+12. [Design System](#-design-system)
+13. [License](#-license)
 
 ---
 
@@ -44,11 +45,13 @@ A hybrid **on-chain / off-chain** DApp that lets administrators issue tamper-pro
 | Feature | Description |
 |---|---|
 | 🔐 **On-Chain Hash Storage** | SHA-256 hash of each certificate is stored on Ethereum — tamper-proof and permanent |
-| 📁 **Decentralized File Storage** | PDF documents and photos are stored on **IPFS** via Pinata for global, persistent access |
+| 📁 **IPFS-Backed File Storage** | PDF documents and photos pinned to **IPFS via Pinata**—decentralized, globally replicated, and content-addressed with immutable CIDs |
 | 🔍 **Dual Verification** | Look up certificates by **Certificate ID** (blockchain) or **SHA-256 Hash** (backend) |
+| 🌍 **Global Accessibility** | Files distributed across IPFS nodes worldwide—no centralized server, no downtime, permanent availability |
+| ✅ **Triple Verification** | Validated at three levels: blockchain reference, SHA-256 metadata hash, and IPFS CID integrity |
 | 🎨 **Dark Cinematic UI** | Cyberpunk-inspired dark theme with glassmorphism cards and smooth animations |
 | 👛 **MetaMask Integration** | Wallet connection, network detection, and admin-only access enforcement |
-| 📄 **Inline Asset Viewer** | View student photos and certificate PDFs directly in the browser |
+| 📄 **Inline Asset Viewer** | View student photos and certificate PDFs directly in the browser via IPFS gateways |
 
 ---
 
@@ -58,11 +61,12 @@ Storing large files (PDFs, images) directly on Ethereum is **prohibitively expen
 
 | Concern | Solution |
 |---|---|
-| **Trust & Integrity** | The **SHA-256 hash** of each certificate's metadata is stored **on-chain** — any change to the data invalidates the hash |
-| **File Storage** | PDFs and photos are stored **off-chain on IPFS** via Pinata — decentralized, resilient, and content-addressed |
-| **Verification** | A verifier retrieves the on-chain hash and uses it to fetch the IPFS metadata from the backend — if they match, the certificate is authentic |
+| **Trust & Integrity** | The **SHA-256 hash** of each certificate's metadata is stored **on-chain** — any change to the data invalidates the hash. Files are further protected by IPFS **Content Identifiers (CIDs)** — immutable by design. |
+| **File Storage** | PDFs and photos are stored **off-chain on IPFS** via Pinata — decentralized, globally distributed, resilient, and content-addressed. No single point of failure. |
+| **Verification** | A verifier retrieves the on-chain reference, fetches IPFS metadata from the backend, and validates both the SHA-256 hash AND the IPFS CIDs — triple-verified authenticity. |
+| **Accessibility** | IPFS provides **global redundancy**. Files pinned to Pinata are mirrored across nodes, ensuring permanent availability and fast retrieval worldwide. |
 
-> **Result:** You get blockchain-grade trust without blockchain-grade gas costs.
+> **Result:** You get blockchain-grade trust, IPFS-grade resilience, and decentralized storage—all without vendor lock-in.
 
 ---
 
@@ -106,23 +110,25 @@ Storing large files (PDFs, images) directly on Ethereum is **prohibitively expen
 Admin fills form (Name, Course, Institute) + uploads PDF & Photo
               │
               ▼
-    ┌─────────────────────┐
-    │  POST /api/certs     │  ── Express receives FormData
-    │  (Backend Server)    │  ── Uploads files to IPFS via Pinata
-    │                      │  ── Builds metadata JSON with IPFS CIDs
-    │                      │  ── Computes SHA-256 hash of metadata
-    │                      │  ── Persists to database.json
-    └──────────┬──────────┘
-               │  Returns { hash }
+    ┌─────────────────────────────────┐
+    │  POST /api/certs                  │  ── Express receives FormData
+    │  (Backend Server)                 │  ── Files streamed to IPFS via Pinata SDK
+    │                                    │  ── Receives immutable CIDs for each file
+    │                                    │  ── Builds metadata JSON w/ CIDs & Pinata URLs
+    │                                    │  ── Computes SHA-256 hash of metadata
+    │                                    │  ── Persists to database.json (metadata only)
+    └──────────┬──────────────────────┘
+               │  Returns { hash, pdfCid, photoCid }
                ▼
     ┌─────────────────────┐
     │  contract.addCert()  │  ── React sends (certId, hash) to chain
     │  (Blockchain TX)     │  ── MetaMask prompts user to confirm
-    │                      │  ── Smart contract stores ID → Hash
+    │                      │  ── Smart contract stores ID → Hash mapping
     └─────────────────────┘
                │
                ▼
       ✅ Certificate Issued — ID + Hash shown to admin
+      📌 Files pinned to IPFS (permanent, globally available)
 ```
 
 ### 🔍 Certificate Verification (Anyone)
@@ -138,12 +144,13 @@ User enters Certificate ID or Hash
                │  hash
                ▼
     ┌─────────────────────────────┐
-    │  GET /api/certificates/:hash │  ── Fetches full metadata
-    │  (Backend API)               │  ── Returns name, course, files…
+    │  GET /api/certificates/:hash │  ── Fetches full metadata from database
+    │  (Backend API)               │  ── Returns name, course, IPFS CIDs & URLs…
+    │                               │  ── Validates SHA-256 hash match
     └──────────┬──────────────────┘
                │
                ▼
-      ✅ "Verified on Ethereum" — full details displayed
+      ✅ "Verified on Ethereum" — full details + IPFS files displayed via gateway
 
     ── OR (if ID not found on chain) ──
 
@@ -176,8 +183,10 @@ User enters Certificate ID or Hash
 |---|---|---|
 | Node.js | ≥ 18 | Runtime environment |
 | Express | 5.x | HTTP server & REST API |
-| Pinata | — | IPFS pinning service for file storage |
-| Multer | — | In-memory multipart file upload handling |
+| Pinata SDK | Latest | IPFS pinning via Pinata—uploads files to decentralized IPFS network and receives immutable CIDs |
+| Multer | — | **In-memory** multipart file handling (no disk storage)—streams directly to IPFS |
+| Streamifier | — | Converts Node.js streams for seamless Pinata integration |
+| Crypto (Node.js) | Built-in | SHA-256 hashing for metadata integrity verification |
 
 ### Smart Contract (`contracts/`)
 
@@ -253,10 +262,34 @@ npm install
 cd dapp
 npm install
 
-# 📦 Backend (Express + Multer)
+# 📦 Backend (Express + IPFS/Pinata)
 cd ../backend && npm install
 npm install @pinata/sdk streamifier
 ```
+
+### Step 1.5 — Configure Pinata Environment Variables
+
+Create a `.env` file in the `backend/` directory with your Pinata API credentials:
+
+```env
+# Pinata API Configuration
+PINATA_API_KEY=your_pinata_api_key_here
+PINATA_API_SECRET=your_pinata_api_secret_here
+
+# Backend Server
+PORT=5000
+NODE_ENV=development
+```
+
+**How to obtain Pinata credentials:**
+
+1. Sign up at [pinata.cloud](https://pinata.cloud/)
+2. Navigate to **API Keys** in the dashboard.
+3. Click **Create Key** and grant **Admin** permissions.
+4. Copy the **API Key** and **API Secret**.
+5. Paste them into your `.env` file.
+
+> ⚠️ **Keep your `.env` file private**—add it to `.gitignore` to prevent accidental commits of secrets.
 
 ### Step 2 — Start Ganache
 
@@ -276,6 +309,29 @@ npm install @pinata/sdk streamifier
 | RPC URL | `http://127.0.0.1:7545` |
 | Chain ID | `1337` |
 | Currency Symbol | `ETH` |
+
+### Step 3 — Verify Pinata Connectivity
+
+Before proceeding, test your Pinata API keys:
+
+```bash
+cd backend
+node -e "
+const axios = require('axios');
+const apiKey = process.env.PINATA_API_KEY;
+const apiSecret = process.env.PINATA_API_SECRET;
+
+axios.get('https://api.pinata.cloud/data/testAuthentication', {
+  headers: {
+    'pinata_api_key': apiKey,
+    'pinata_secret_api_key': apiSecret
+  }
+}).then(() => console.log('✅ Pinata connected!'))
+  .catch(err => console.log('❌ Pinata auth failed:', err.message));
+"
+```
+
+> If successful, you'll see `✅ Pinata connected!`. If not, verify your `.env` credentials.
 
 ### Step 4 — Compile & Deploy the Smart Contract
 
@@ -299,9 +355,12 @@ node server.js
 > 🚀 CertChain Backend running on http://localhost:5000
 > 📂 Database    : ...\backend\database.json
 > 📊 Existing records: 20
+> 📌 IPFS via Pinata: Connected
 > ```
+>
+> Files uploaded to forms will now be **pinned to IPFS** automatically and indexed with immutable CIDs.
 
-### Step 6 — Build & Serve the Frontend
+### Step 7 — Build & Serve the Frontend
 
 ```bash
 cd dapp
@@ -336,10 +395,10 @@ npm start
    | Student Photo | Upload an image (`.jpg`, `.png`) |
 
 4. **Submit** — Click "Issue Certificate & Register Hash".
-   - **Phase 1:** Files + metadata are uploaded to the backend. The SHA-256 hash is generated and displayed immediately in a cyan card.
-   - **Phase 2:** MetaMask prompts you to confirm the blockchain transaction. Once confirmed, the Certificate ID and transaction hash are shown.
+   - **Phase 1:** Files are streamed to IPFS via Pinata. The system receives immutable **CIDs** for each file and generates SHA-256 metadata hash. Display shows both the hash and the Pinata gateway URLs.
+   - **Phase 2:** MetaMask prompts you to confirm the blockchain transaction. Once confirmed, the Certificate ID and transaction hash are shown. Files are now **permanently pinned to IPFS**.
 
-5. **Done** — Copy the Certificate ID (e.g., `CERT-1771529389384`) and share it with the student.
+5. **Done** — Copy the Certificate ID (e.g., `CERT-1771529389384`) and share it with the student. Their certificate is now on-chain, and the files are globally accessible via IPFS.
 
 > ⚠️ If the blockchain transaction fails, the hash remains visible. You can retry without re-uploading.
 
@@ -356,9 +415,9 @@ npm start
 4. **View Results** —
    - ✅ **Green badge** = "Verified on Ethereum" (found on chain).
    - 📂 **Amber badge** = "Retrieved via Hash" (found in database only).
-   - All metadata is displayed: Name, Course, Institute, Creation Date, Filenames.
+   - All metadata is displayed: Name, Course, Institute, Creation Date, IPFS CIDs, Pinata gateway URLs.
 
-5. **View Assets** — Click the "View Certificate Assets" button to expand an inline viewer showing the student photo and an embedded PDF reader.
+5. **View Assets** — Click the "View Certificate Assets" button to expand an inline viewer. Files are retrieved from IPFS gateways and displayed directly in the browser—PDFs in an embedded reader, photos inline.
 
 ---
 
@@ -368,21 +427,23 @@ Base URL: `http://127.0.0.1:5000`
 
 ### `POST /api/certificates`
 
-Upload certificate files and metadata. Returns a SHA-256 hash.
+Upload certificate files and metadata. Files are streamed to IPFS via Pinata and indexed with immutable CIDs. Returns a SHA-256 hash of the metadata for on-chain registration.
 
 | Parameter | Type | Location | Required | Description |
 |---|---|---|---|---|
 | `name` | string | form-data | ✅ | Student's full name |
 | `courseName` | string | form-data | ✅ | Course or program name |
 | `instituteName` | string | form-data | ✅ | Issuing institution |
-| `pdf` | file | form-data | ✅ | Certificate PDF (max 10 MB) |
-| `photo` | file | form-data | ✅ | Student photo (max 10 MB) |
+| `pdf` | file | form-data | ✅ | Certificate PDF (max 10 MB)—pinned to IPFS |
+| `photo` | file | form-data | ✅ | Student photo (max 10 MB)—pinned to IPFS |
 
 **Success Response** `200 OK`:
 ```json
 {
   "success": true,
-  "hash": "72480d9efe479e2dab47d1c054a3498aa3b11d0e88a211093f34a00874af7592"
+  "hash": "72480d9efe479e2dab47d1c054a3498aa3b11d0e88a211093f34a00874af7592",
+  "pdfCid": "QmZf3t...aP7n",
+  "photoCid": "QmWp9s...zK8r"
 }
 ```
 
@@ -398,7 +459,7 @@ Upload certificate files and metadata. Returns a SHA-256 hash.
 
 ### `GET /api/certificates/:hash`
 
-Retrieve certificate metadata by its SHA-256 hash.
+Retrieve certificate metadata by its SHA-256 hash. Returns full metadata including IPFS CIDs and Pinata gateway URLs for file access.
 
 | Parameter | Type | Location | Description |
 |---|---|---|---|
@@ -409,6 +470,7 @@ Retrieve certificate metadata by its SHA-256 hash.
 {
   "success": true,
   "certificate": {
+    "id": "CERT-1771529389384",
     "name": "Hrithik Singh",
     "courseName": "Full Stack Web Development",
     "instituteName": "MGM College of Engineering",
@@ -416,7 +478,8 @@ Retrieve certificate metadata by its SHA-256 hash.
     "photoCid": "QmWp9s...zK8r",
     "createdAt": "2026-02-19T19:29:49.411Z",
     "pdfUrl": "https://gateway.pinata.cloud/ipfs/QmZf3t...aP7n",
-    "photoUrl": "https://gateway.pinata.cloud/ipfs/QmWp9s...zK8r"
+    "photoUrl": "https://gateway.pinata.cloud/ipfs/QmWp9s...zK8r",
+    "metadataHash": "72480d9efe479e2dab47d1c054a3498aa3b11d0e88a211093f34a00874af7592"
   }
 }
 ```
@@ -428,6 +491,37 @@ Retrieve certificate metadata by its SHA-256 hash.
   "error": "Certificate not found."
 }
 ```
+
+---
+
+## 🌐 IPFS Integration & Pinata Pinning Strategy
+
+### How It Works
+
+CertChain leverages **IPFS (InterPlanetary File System)** via **Pinata** as the backbone for decentralized file storage:
+
+| Component | Role |
+|---|---|
+| **Pinata SDK** | Handles file uploads and IPFS pinning programmatically |
+| **IPFS CIDs** | Content-addressed identifiers—immutable and cryptographically secure |
+| **Pinata Gateways** | HTTP endpoints for browser-based file retrieval (no IPFS node required) |
+| **database.json** | Stores only metadata links (CIDs, URLs, hashes)—no raw file data |
+
+### Benefits of IPFS
+
+| Benefit | Implication |
+|---|---|
+| **Content-Addressed Storage** | Files identified by their hash, not location—impossible to alter without changing CID |
+| **Global Redundancy** | Pinata replicates files across multiple IPFS nodes—permanent availability |
+| **No Vendor Lock-In** | CIDs work across any IPFS network—Pinata is interchangeable with other pinning services |
+| **Bandwidth Efficiency** | IPFS caches frequently accessed files across the network—faster retrieval |
+| **Survivability** | Files persisted to IPFS remain accessible even if Pinata gateway goes down (via alternative IPFS gateways) |
+
+### Data Integrity: Triple Verification
+
+1. **SHA-256 Metadata Hash** — Stored on Ethereum blockchain; verifies metadata integrity
+2. **IPFS Presence** — CIDs prove files are pinned; accessible via any IPFS gateway
+3. **Content Verification** — Hash CIDs match stored metadata—cryptographic proof of authenticity
 
 ---
 
