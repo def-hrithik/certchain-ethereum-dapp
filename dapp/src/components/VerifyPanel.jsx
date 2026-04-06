@@ -65,9 +65,13 @@ function formatDate(iso) {
 function MetaRow({ label, value, mono }) {
   if (!value) return null;
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-[11px] uppercase tracking-wider text-slate-500 mb-0.5">{label}</p>
-      <p className={`text-sm text-white font-medium ${mono ? "font-mono" : ""}`}>{value}</p>
+      <p
+        className={`text-sm text-white font-medium break-all ${mono ? "font-mono" : ""}`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -249,8 +253,8 @@ export default function VerifyPanel({ contract }) {
                         <MetaRow label="Institute Name" value={cert.instituteName} />
                         <MetaRow label="Certificate ID" value={result.id} mono />
                         <MetaRow label="Created At" value={formatDate(cert.createdAt)} />
-                        <MetaRow label="PDF Filename" value={cert.pdfFilename} mono />
-                        <MetaRow label="Photo Filename" value={cert.photoFilename} mono />
+                        <MetaRow label="PDF IPFS CID" value={cert.pdfCid} mono />
+                        <MetaRow label="Photo IPFS CID" value={cert.photoCid} mono />
                       </div>
                     </div>
                   )}
@@ -298,7 +302,7 @@ export default function VerifyPanel({ contract }) {
                                   </p>
                                   <div className="flex justify-center">
                                     <img
-                                      src={`${BACKEND}${cert.photoUrl}`}
+                                      src={cert.photoUrl}
                                       alt="Student"
                                       className="max-w-xs w-full rounded-xl object-cover border border-white/10 shadow-lg"
                                     />
@@ -314,7 +318,7 @@ export default function VerifyPanel({ contract }) {
                                       📄 Certificate Document
                                     </p>
                                     <a
-                                      href={`${BACKEND}${cert.pdfUrl}`}
+                                      href={cert.pdfUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-xs text-cyan-400 hover:underline"
@@ -323,7 +327,7 @@ export default function VerifyPanel({ contract }) {
                                     </a>
                                   </div>
                                   <iframe
-                                    src={`${BACKEND}${cert.pdfUrl}`}
+                                    src={cert.pdfUrl}
                                     title="Certificate PDF"
                                     className="w-full rounded-lg border border-white/10"
                                     style={{ height: "500px" }}

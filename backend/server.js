@@ -5,32 +5,27 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const fsPromises = require("fs/promises");
+const PinataClient = require("@pinata/sdk");
+const streamifier = require("streamifier");
 require("dotenv").config();
 
 /* ═══════════════════════════════════════════════════════
    CONFIG
    ═══════════════════════════════════════════════════════ */
 const PORT = process.env.PORT || 5000;
-const UPLOADS_DIR = path.join(__dirname, "uploads");
 const DB_PATH = path.join(__dirname, "database.json");
 
-// Ensure uploads/ exists
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// Pinata Configuration
+const pinata = new PinataClient(process.env.PINATA_API_KEY, process.env.PINATA_API_SECRET);
+const PINATA_GATEWAY = process.env.PINATA_GATEWAY || "https://gateway.pinata.cloud/ipfs";
 
 // Ensure database.json exists
 if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({}, null, 2));
 
 /* ═══════════════════════════════════════════════════════
-   MULTER — file upload with original extensions
+   MULTER — file upload to memory
    ═══════════════════════════════════════════════════════ */
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
-  filename: (_req, file, cb) => {
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e6);
-    const ext = path.extname(file.originalname);
-    cb(null, `${file.fieldname}-${unique}${ext}`);
-  },
-});
+const storage = multer.memoryStorage();
 
 const fileFilter = (_req, file, cb) => {
   if (file.fieldname === "pdf" && file.mimetype !== "application/pdf") {
@@ -67,9 +62,6 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
-// Serve uploaded files statically
-app.use("/uploads", express.static(UPLOADS_DIR));
-
 /* ───── Health Check ───── */
 app.get("/", (_req, res) => {
   res.json({ message: "CertChain Backend Running 🚀" });
@@ -78,95 +70,114 @@ app.get("/", (_req, res) => {
 /* ═══════════════════════════════════════════════════════
    POST /api/certificates — Upload files + store metadata
    ═══════════════════════════════════════════════════════ */
-const certUpload = upload.fields([
+app.post("/api/certificates", upload.fields([
   { name: "pdf", maxCount: 1 },
   { name: "photo", maxCount: 1 },
-]);
-
-app.post("/api/certificates", (req, res) => {
+]), async (req, res) => {
   console.log("\n━━━ POST /api/certificates HIT ━━━");
 
-  certUpload(req, res, async (err) => {
-    // Multer / file-type errors
-    if (err) {
-      console.error("❌ Multer error:", err.message);
-      return res.status(400).json({ success: false, error: err.message });
+  try {
+    /* ── Debug: log everything received ── */
+    console.log("📦 req.body:", JSON.stringify(req.body, null, 2));
+    console.log("📎 req.files:", req.files ? Object.keys(req.files) : "NONE");
+    if (req.files?.pdf?.[0]) {
+      console.log(`   pdf → ${req.files.pdf[0].originalname} (${req.files.pdf[0].size} bytes)`);
+    }
+    if (req.files?.photo?.[0]) {
+      console.log(`   photo → ${req.files.photo[0].originalname} (${req.files.photo[0].size} bytes)`);
     }
 
-    try {
-      /* ── Debug: log everything received ── */
-      console.log("📦 req.body:", JSON.stringify(req.body, null, 2));
-      console.log("📎 req.files keys:", req.files ? Object.keys(req.files) : "NONE");
-      if (req.files?.pdf?.[0]) console.log("   pdf →", req.files.pdf[0].filename);
-      if (req.files?.photo?.[0]) console.log("   photo →", req.files.photo[0].filename);
+    /* ── Validate files ── */
+    const pdfFile = req.files?.pdf?.[0];
+    const photoFile = req.files?.photo?.[0];
 
-      /* ── Validate files ── */
-      const pdfFile = req.files?.pdf?.[0];
-      const photoFile = req.files?.photo?.[0];
+    if (!pdfFile || !photoFile) {
+      console.error("❌ Missing files — pdf:", !!pdfFile, "photo:", !!photoFile);
+      return res.status(400).json({
+        success: false,
+        error: "Both a PDF certificate and a student photo are required.",
+      });
+    }
 
-      if (!pdfFile || !photoFile) {
-        console.error("❌ Missing files — pdf:", !!pdfFile, "photo:", !!photoFile);
-        return res.status(400).json({
-          success: false,
-          error: "Both a PDF certificate and a student photo are required.",
-        });
-      }
+    /* ── Validate text fields ── */
+    const { name, courseName, instituteName } = req.body;
+    const required = { name, courseName, instituteName };
+    const missing = Object.entries(required)
+      .filter(([, v]) => !v || !v.trim())
+      .map(([k]) => k);
 
-      /* ── Validate text fields ── */
-      const { name, courseName, instituteName } = req.body;
-      const required = { name, courseName, instituteName };
-      const missing = Object.entries(required)
-        .filter(([, v]) => !v || !v.trim())
-        .map(([k]) => k);
+    if (missing.length > 0) {
+      console.error("❌ Missing text fields:", missing);
+      return res.status(400).json({
+        success: false,
+        error: `Missing required fields: ${missing.join(", ")}`,
+      });
+    }
 
-      if (missing.length > 0) {
-        console.error("❌ Missing text fields:", missing);
-        return res.status(400).json({
-          success: false,
-          error: `Missing required fields: ${missing.join(", ")}`,
-        });
-      }
+    /* ── STEP 1: Upload files to Pinata (IPFS) ── */
+    console.log("☁️  Uploading files to IPFS via Pinata...");
 
-      /* ── Build metadata object ── */
-      const metadata = {
-        name: name.trim(),
-        courseName: courseName.trim(),
-        instituteName: instituteName.trim(),
-        pdfFilename: pdfFile.filename,
-        photoFilename: photoFile.filename,
-        createdAt: new Date().toISOString(),
+    const pinFile = async (file) => {
+      console.log(`   ↳ Pinning ${file.fieldname}: ${file.originalname}`);
+      const stream = streamifier.createReadStream(file.buffer);
+      const options = {
+        pinataMetadata: { name: file.originalname },
       };
+      // FIX: The method is directly on the client instance, not under a `.pinning` property for this SDK version.
+      const result = await pinata.pinFileToIPFS(stream, options);
+      console.log(`   ↳ Pinned ${file.fieldname} (${file.originalname}) → ${result.IpfsHash}`);
+      return result.IpfsHash;
+    };
 
-      /* ── Deterministic SHA-256 hash of metadata ── */
-      const hash = crypto
-        .createHash("sha256")
-        .update(JSON.stringify(metadata))
-        .digest("hex");
+    const [pdfCid, photoCid] = await Promise.all([pinFile(pdfFile), pinFile(photoFile)]);
 
-      /* ── Persist to database.json ── */
-      console.log("💾 DB_PATH:", DB_PATH);
-      console.log("💾 Writing hash:", hash.slice(0, 16) + "…");
-
-      const db = await readDB();
-      db[hash] = metadata;
-
-      try {
-        await writeDB(db);
-        console.log("✅ database.json written successfully. Total records:", Object.keys(db).length);
-      } catch (writeErr) {
-        console.error("❌ WRITE FAILED:", writeErr.message);
-        console.error("   Full error:", writeErr);
-        return res.status(500).json({ success: false, error: "Failed to write database." });
-      }
-
-      console.log(`✅ Certificate stored — Name: ${metadata.name}  Hash: ${hash.slice(0, 12)}…`);
-
-      return res.json({ success: true, hash });
-    } catch (error) {
-      console.error("❌ POST /api/certificates error:", error);
-      return res.status(500).json({ success: false, error: "Internal server error." });
+    if (!pdfCid || !photoCid) {
+      throw new Error("IPFS upload failed. One or more CIDs are missing.");
     }
-  });
+
+    /* ── Build metadata object with IPFS CIDs ── */
+    const metadata = {
+      name: name.trim(),
+      courseName: courseName.trim(),
+      instituteName: instituteName.trim(),
+      pdfCid: pdfCid,
+      photoCid: photoCid,
+      createdAt: new Date().toISOString(),
+    };
+
+    /* ── Deterministic SHA-256 hash of the new metadata ── */
+    const hash = crypto
+      .createHash("sha256")
+      .update(JSON.stringify(metadata))
+      .digest("hex");
+
+    /* ── Persist to database.json ── */
+    console.log("💾 Writing to database. Hash:", hash.slice(0, 16) + "…");
+    const db = await readDB();
+    db[hash] = metadata;
+    await writeDB(db);
+    console.log("✅ database.json written successfully. Total records:", Object.keys(db).length);
+
+    console.log(`✅ Certificate stored — Name: ${metadata.name}  Hash: ${hash.slice(0, 12)}…`);
+    return res.json({ success: true, hash });
+
+  } catch (error) {
+    console.error("❌ POST /api/certificates error:", error);
+    // Handle specific multer errors
+    if (error instanceof multer.MulterError) {
+        return res.status(400).json({ success: false, error: `File upload error: ${error.message}` });
+    }
+    // Handle specific Pinata auth errors
+    if (error.message?.includes("EINVALIDPINATAKEYS") || error.message?.includes("authentication")) {
+      return res.status(401).json({ success: false, error: "Pinata authentication failed. Check your API keys." });
+    }
+    // Handle our custom file filter errors from multer
+    if (error.message.includes("Only PDF files are allowed") || error.message.includes("Only image files are allowed")) {
+        return res.status(400).json({ success: false, error: error.message });
+    }
+    // Generic server error
+    return res.status(500).json({ success: false, error: "Internal server error." });
+  }
 });
 
 /* ═══════════════════════════════════════════════════════
@@ -181,12 +192,13 @@ app.get("/api/certificates/:hash", async (req, res) => {
       return res.status(404).json({ success: false, error: "Certificate not found." });
     }
 
+    // Construct full IPFS gateway URLs
     return res.json({
       success: true,
       certificate: {
         ...record,
-        pdfUrl: `/uploads/${record.pdfFilename}`,
-        photoUrl: `/uploads/${record.photoFilename}`,
+        pdfUrl: `${PINATA_GATEWAY}/${record.pdfCid}`,
+        photoUrl: `${PINATA_GATEWAY}/${record.photoCid}`,
       },
     });
   } catch (error) {
@@ -200,7 +212,6 @@ app.get("/api/certificates/:hash", async (req, res) => {
    ═══════════════════════════════════════════════════════ */
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 CertChain Backend running on http://localhost:${PORT}`);
-  console.log(`📂 Uploads dir : ${UPLOADS_DIR}`);
   console.log(`📂 Database    : ${DB_PATH}`);
   try {
     const db = JSON.parse(fs.readFileSync(DB_PATH, "utf-8"));
