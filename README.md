@@ -44,8 +44,8 @@ A hybrid **on-chain / off-chain** DApp that lets administrators issue tamper-pro
 | Feature | Description |
 |---|---|
 | 🔐 **On-Chain Hash Storage** | SHA-256 hash of each certificate is stored on Ethereum — tamper-proof and permanent |
-| 📁 **Off-Chain File Storage** | PDF documents and student photos are stored on a local Express server |
-| 🔍 **Dual Verification** | Look up certificates by **Certificate ID** (blockchain) or **SHA-256 Hash** (backend fallback) |
+| 📁 **Decentralized File Storage** | PDF documents and photos are stored on **IPFS** via Pinata for global, persistent access |
+| 🔍 **Dual Verification** | Look up certificates by **Certificate ID** (blockchain) or **SHA-256 Hash** (backend) |
 | 🎨 **Dark Cinematic UI** | Cyberpunk-inspired dark theme with glassmorphism cards and smooth animations |
 | 👛 **MetaMask Integration** | Wallet connection, network detection, and admin-only access enforcement |
 | 📄 **Inline Asset Viewer** | View student photos and certificate PDFs directly in the browser |
@@ -59,8 +59,8 @@ Storing large files (PDFs, images) directly on Ethereum is **prohibitively expen
 | Concern | Solution |
 |---|---|
 | **Trust & Integrity** | The **SHA-256 hash** of each certificate's metadata is stored **on-chain** — any change to the data invalidates the hash |
-| **File Storage** | PDFs and photos are stored **off-chain** on a local Express server — fast, free, and practical |
-| **Verification** | A verifier retrieves the hash from the blockchain and compares it against the backend record — if they match, the certificate is authentic |
+| **File Storage** | PDFs and photos are stored **off-chain on IPFS** via Pinata — decentralized, resilient, and content-addressed |
+| **Verification** | A verifier retrieves the on-chain hash and uses it to fetch the IPFS metadata from the backend — if they match, the certificate is authentic |
 
 > **Result:** You get blockchain-grade trust without blockchain-grade gas costs.
 
@@ -79,15 +79,15 @@ Storing large files (PDFs, images) directly on Ethereum is **prohibitively expen
     │              │        │                    │       │  Blockchain │
     │  Tailwind    │  HTTP  │  POST /api/certs   │       │             │
     │  Framer      │◄──────►│  GET  /api/certs   │       │  Solidity   │
-    │  Motion      │        │  Static /uploads   │       │  Contract   │
+    │  Motion      │        │                    │       │  Contract   │
     │  Ethers.js ──┼────────┼────────────────────┼──────►│             │
     └──────────────┘  RPC   │  ┌──────────────┐  │       │  ┌───────┐  │
                             │  │ database.json│  │       │  │ID→Hash│  │
                             │  └──────────────┘  │       │  │Mapping│  │
                             │  ┌──────────────┐  │       │  └───────┘  │
-                            │  │  /uploads/    │  │       └─────────────┘
-                            │  │  PDFs, Photos │  │
-                            │  └──────────────┘  │
+                            │  │ Pinata / IPFS│  │       └─────────────┘
+                            │  │ (File Storage) │  │
+                            │  └────────────────┘  │
                             └──────────────────┘
 
     ┌──────────────┐
@@ -108,9 +108,9 @@ Admin fills form (Name, Course, Institute) + uploads PDF & Photo
               ▼
     ┌─────────────────────┐
     │  POST /api/certs     │  ── Express receives FormData
-    │  (Backend Server)    │  ── Saves files to /uploads/
-    │                      │  ── Builds metadata JSON
-    │                      │  ── Computes SHA-256 hash
+    │  (Backend Server)    │  ── Uploads files to IPFS via Pinata
+    │                      │  ── Builds metadata JSON with IPFS CIDs
+    │                      │  ── Computes SHA-256 hash of metadata
     │                      │  ── Persists to database.json
     └──────────┬──────────┘
                │  Returns { hash }
@@ -176,8 +176,8 @@ User enters Certificate ID or Hash
 |---|---|---|
 | Node.js | ≥ 18 | Runtime environment |
 | Express | 5.x | HTTP server & REST API |
-| Multer | — | Multipart file upload handling |
-| Crypto (built-in) | — | SHA-256 hash generation |
+| Pinata | — | IPFS pinning service for file storage |
+| Multer | — | In-memory multipart file upload handling |
 
 ### Smart Contract (`contracts/`)
 
@@ -213,7 +213,6 @@ Blockchain/
 ├── backend/                           # Express API server
 │   ├── server.js                      # Routes, multer, crypto hashing
 │   ├── database.json                  # Persistent certificate metadata
-│   └── uploads/                       # Stored PDFs & student photos
 │
 └── dapp/                              # React frontend
     ├── public/
@@ -255,8 +254,8 @@ cd dapp
 npm install
 
 # 📦 Backend (Express + Multer)
-cd ../backend
-npm install
+cd ../backend && npm install
+npm install @pinata/sdk streamifier
 ```
 
 ### Step 2 — Start Ganache
@@ -298,8 +297,8 @@ node server.js
 > 🚀 Server starts at `http://127.0.0.1:5000`. You should see:
 > ```
 > 🚀 CertChain Backend running on http://localhost:5000
-> 📂 Uploads dir : ...\backend\uploads
 > 📂 Database    : ...\backend\database.json
+> 📊 Existing records: 20
 > ```
 
 ### Step 6 — Build & Serve the Frontend
@@ -413,16 +412,16 @@ Retrieve certificate metadata by its SHA-256 hash.
     "name": "Hrithik Singh",
     "courseName": "Full Stack Web Development",
     "instituteName": "MGM College of Engineering",
-    "pdfFilename": "pdf-1771529389384-856410.pdf",
-    "photoFilename": "photo-1771529389399-294217.jpg",
+    "pdfCid": "QmZf3t...aP7n",
+    "photoCid": "QmWp9s...zK8r",
     "createdAt": "2026-02-19T19:29:49.411Z",
-    "pdfUrl": "/uploads/pdf-1771529389384-856410.pdf",
-    "photoUrl": "/uploads/photo-1771529389399-294217.jpg"
+    "pdfUrl": "https://gateway.pinata.cloud/ipfs/QmZf3t...aP7n",
+    "photoUrl": "https://gateway.pinata.cloud/ipfs/QmWp9s...zK8r"
   }
 }
 ```
 
-**Error Response** `404 Not Found`:
+**Error Responses**:
 ```json
 {
   "success": false,
