@@ -12,7 +12,6 @@ import {
   Hash,
   UserCheck,
   Blocks,
-  Search,
 } from "lucide-react";
 
 /* ══════════════════════════════════════════════════════════
@@ -154,25 +153,114 @@ const steps = [
   {
     icon: Building2,
     num: "01",
-    title: "User Issues",
-    desc: "Any connected wallet uploads the certificate details via the CertChain DApp.",
+    title: "Admin Issues",
+    desc: "An authorized admin wallet submits certificate details to the CertChain DApp.",
     accent: "cyan",
   },
   {
     icon: Blocks,
     num: "02",
     title: "Hash Stored On-Chain",
-    desc: "A unique, tamper-proof hash is permanently recorded to the Ethereum smart contract.",
+    desc: "A tamper-proof cryptographic hash is permanently written to the Ethereum smart contract.",
     accent: "purple",
   },
   {
     icon: UserCheck,
     num: "03",
     title: "Anyone Verifies",
-    desc: "Enter the certificate ID to instantly confirm its authenticity on-chain.",
+    desc: "Enter the certificate ID for an instant, trustless on-chain authenticity check.",
     accent: "cyan",
   },
 ];
+
+/* ══════════════════════════════════════════════════════════
+   HOW IT WORKS — section with animated connector line
+   ══════════════════════════════════════════════════════════ */
+function HowItWorksSection() {
+  const lineRef = useRef(null);
+  const lineInView = useInView(lineRef, { once: true, margin: "-100px" });
+
+  return (
+    <section className="relative py-24 sm:py-32 px-4 sm:px-6">
+      {/* Faint gradient divider line */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
+
+      <Reveal className="max-w-5xl mx-auto">
+        <motion.div variants={fadeUp} className="text-center mb-20">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+            How It{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">
+              Works
+            </span>
+          </h2>
+          <p className="mt-4 text-slate-400 text-lg max-w-xl mx-auto">
+            Three simple steps from issuance to verification — all secured by
+            the Ethereum blockchain.
+          </p>
+        </motion.div>
+
+        {/* Step cards */}
+        <div className="relative">
+          {/* Animated desktop connector line — draws in from left as it scrolls into view */}
+          <div
+            ref={lineRef}
+            className="hidden lg:block absolute top-1/2 left-0 right-0 h-px -translate-y-1/2 z-0 overflow-hidden"
+          >
+            <motion.div
+              className="h-full bg-gradient-to-r from-cyan-500/40 via-purple-500/40 to-cyan-500/40"
+              initial={{ scaleX: 0, originX: 0 }}
+              animate={lineInView ? { scaleX: 1 } : { scaleX: 0 }}
+              transition={{ duration: 1.1, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.3 }}
+            />
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8 relative z-10">
+            {steps.map((s) => {
+              const isCyan = s.accent === "cyan";
+              const borderColor = isCyan ? "border-cyan-500/40" : "border-purple-500/40";
+              const numBg = isCyan ? "bg-cyan-500" : "bg-purple-500";
+              const iconColor = isCyan ? "text-cyan-400" : "text-purple-400";
+              const glowColor = isCyan
+                ? "shadow-[0_0_30px_rgba(6,182,212,0.12)]"
+                : "shadow-[0_0_30px_rgba(139,92,246,0.12)]";
+
+              return (
+                <motion.div
+                  key={s.num}
+                  variants={fadeUp}
+                  whileHover={{ y: -6, transition: { duration: 0.25 } }}
+                  className={`relative rounded-2xl border-t-2 ${borderColor} bg-void-card/80 backdrop-blur-sm p-8 ${glowColor}
+                              hover:border-t-cyan-400/60 transition-all duration-300`}
+                >
+                  {/* Numbered badge */}
+                  <span
+                    className={`absolute -top-4 left-6 ${numBg} text-white text-xs font-bold
+                                w-8 h-8 flex items-center justify-center rounded-full shadow-lg`}
+                  >
+                    {s.num}
+                  </span>
+
+                  <div className={`${iconColor} mb-4 mt-2`}>
+                    <s.icon className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">{s.title}</h3>
+                  <p className="text-sm text-slate-400 leading-relaxed">{s.desc}</p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Mobile flow hint */}
+        <div className="mt-10 flex justify-center lg:hidden">
+          <span className="text-slate-500 text-xs tracking-widest uppercase">
+            Issue → Store → Verify
+          </span>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
 
 /* ══════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -225,11 +313,10 @@ export default function LandingPage({ onNavigate }) {
           {/* Subtitle */}
           <motion.p
             variants={fadeUp}
-            className="mt-6 text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
+            className="mt-6 text-lg sm:text-xl text-slate-400 max-w-xl mx-auto leading-relaxed"
           >
-            CertChain lets institutions issue tamper-proof certificates stored on
-            Ethereum. Anyone can verify authenticity in seconds — no
-            intermediaries, no paperwork.
+            Tamper-proof credentials on Ethereum. Issued by admins,
+            verified by anyone — instantly, trustlessly, forever.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -238,8 +325,9 @@ export default function LandingPage({ onNavigate }) {
             className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             {/* Primary — glowing gradient button */}
-            <button
+            <motion.button
               onClick={() => onNavigate("verify")}
+              whileTap={{ scale: 0.95 }}
               className="group relative flex items-center gap-2 font-semibold text-sm px-8 py-4 rounded-xl
                          bg-gradient-to-r from-cyan-500 to-purple-600 text-white
                          shadow-[0_0_30px_rgba(6,182,212,0.35)] hover:shadow-[0_0_50px_rgba(6,182,212,0.55)]
@@ -247,17 +335,18 @@ export default function LandingPage({ onNavigate }) {
             >
               Launch App
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </button>
+            </motion.button>
 
             {/* Secondary — glass button */}
-            <button
+            <motion.button
               onClick={() => onNavigate("admin")}
+              whileTap={{ scale: 0.95 }}
               className="flex items-center gap-2 font-semibold text-sm px-8 py-4 rounded-xl
                          bg-white/5 backdrop-blur-sm border border-white/10 text-slate-300
                          hover:bg-white/10 hover:text-white transition-all duration-300"
             >
               Issue Certificate
-            </button>
+            </motion.button>
           </motion.div>
         </motion.div>
 
@@ -326,142 +415,8 @@ export default function LandingPage({ onNavigate }) {
       </section>
 
       {/* ═══════════════════  HOW IT WORKS  ═══════════════════ */}
-      <section className="relative py-24 sm:py-32 px-4 sm:px-6">
-        {/* Faint gradient divider line */}
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
+      <HowItWorksSection />
 
-        <Reveal className="max-w-5xl mx-auto">
-          <motion.div variants={fadeUp} className="text-center mb-20">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              How It{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">
-                Works
-              </span>
-            </h2>
-            <p className="mt-4 text-slate-400 text-lg max-w-xl mx-auto">
-              Three simple steps from issuance to verification — all secured by
-              the Ethereum blockchain.
-            </p>
-          </motion.div>
-
-          {/* Step cards */}
-          <div className="relative">
-            {/* Desktop connector line — gradient */}
-            <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-cyan-500/30 via-purple-500/30 to-cyan-500/30 -translate-y-1/2 z-0" />
-
-            <div className="grid lg:grid-cols-3 gap-8 relative z-10">
-              {steps.map((s, i) => {
-                const isCyan = s.accent === "cyan";
-                const borderColor = isCyan ? "border-cyan-500/40" : "border-purple-500/40";
-                const numBg = isCyan ? "bg-cyan-500" : "bg-purple-500";
-                const iconColor = isCyan ? "text-cyan-400" : "text-purple-400";
-                const glowColor = isCyan
-                  ? "shadow-[0_0_30px_rgba(6,182,212,0.12)]"
-                  : "shadow-[0_0_30px_rgba(139,92,246,0.12)]";
-
-                return (
-                  <motion.div
-                    key={s.num}
-                    variants={fadeUp}
-                    whileHover={{ y: -6, transition: { duration: 0.25 } }}
-                    className={`relative rounded-2xl border-t-2 ${borderColor} bg-void-card/80 backdrop-blur-sm p-8 ${glowColor}
-                                hover:border-t-cyan-400/60 transition-all duration-300`}
-                  >
-                    {/* Numbered badge */}
-                    <span
-                      className={`absolute -top-4 left-6 ${numBg} text-white text-xs font-bold
-                                  w-8 h-8 flex items-center justify-center rounded-full shadow-lg`}
-                    >
-                      {s.num}
-                    </span>
-
-                    <div className={`${iconColor} mb-4 mt-2`}>
-                      <s.icon className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white mb-2">
-                      {s.title}
-                    </h3>
-                    <p className="text-sm text-slate-400 leading-relaxed">
-                      {s.desc}
-                    </p>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Mobile flow hint */}
-          <div className="mt-10 flex justify-center lg:hidden">
-            <span className="text-slate-500 text-xs tracking-widest uppercase">
-              Issue → Store → Verify
-            </span>
-          </div>
-        </Reveal>
-      </section>
-
-      {/* ═══════════════════  QUICK ACCESS PORTAL  ═══════════════════ */}
-      <section className="relative py-24 sm:py-28 px-4 sm:px-6">
-        <Reveal className="max-w-3xl mx-auto">
-          <motion.p
-            variants={fadeIn}
-            className="text-center text-sm uppercase tracking-[0.25em] text-slate-500 mb-10"
-          >
-            Quick Access
-          </motion.p>
-
-          <div className="grid sm:grid-cols-2 gap-5">
-            {/* ── Verify Card ── */}
-            <motion.button
-              variants={fadeUp}
-              whileHover={{ scale: 1.03, transition: { duration: 0.25 } }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => onNavigate("verify")}
-              className="group relative rounded-2xl p-[1px] bg-gradient-to-br from-cyan-500/50 to-cyan-500/0
-                         transition-shadow duration-500 hover:shadow-[0_0_40px_rgba(6,182,212,0.2)]
-                         focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
-            >
-              <div className="relative flex flex-col items-center gap-4 rounded-2xl bg-slate-950 px-6 py-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-cyan-500/10
-                                ring-1 ring-cyan-500/20 transition-all duration-300
-                                group-hover:bg-cyan-500/20 group-hover:ring-cyan-500/40">
-                  <Search className="w-6 h-6 text-cyan-400" />
-                </div>
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-white mb-1">Verify Certificate</h3>
-                  <p className="text-sm text-slate-500">Check authenticity on-chain</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-600 transition-all duration-300
-                                       group-hover:text-cyan-400 group-hover:translate-x-1" />
-              </div>
-            </motion.button>
-
-            {/* ── Admin Card ── */}
-            <motion.button
-              variants={fadeUp}
-              whileHover={{ scale: 1.03, transition: { duration: 0.25 } }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => onNavigate("admin")}
-              className="group relative rounded-2xl p-[1px] bg-gradient-to-br from-purple-500/50 to-purple-500/0
-                         transition-shadow duration-500 hover:shadow-[0_0_40px_rgba(139,92,246,0.2)]
-                         focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60"
-            >
-              <div className="relative flex flex-col items-center gap-4 rounded-2xl bg-slate-950 px-6 py-10">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-purple-500/10
-                                ring-1 ring-purple-500/20 transition-all duration-300
-                                group-hover:bg-purple-500/20 group-hover:ring-purple-500/40">
-                  <FileCheck className="w-6 h-6 text-purple-400" />
-                </div>
-                <div className="text-center">
-                  <h3 className="text-lg font-semibold text-white mb-1">Issue Certificate</h3>
-                  <p className="text-sm text-slate-500">Register credentials on-chain</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-600 transition-all duration-300
-                                       group-hover:text-purple-400 group-hover:translate-x-1" />
-              </div>
-            </motion.button>
-          </div>
-        </Reveal>
-      </section>
 
       {/* ═══════════════════  FOOTER  ═══════════════════ */}
       <footer className="relative border-t border-white/[0.06] py-8 px-4 sm:px-6">
