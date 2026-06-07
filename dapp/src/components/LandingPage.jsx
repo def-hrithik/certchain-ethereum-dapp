@@ -129,8 +129,8 @@ const features = [
   },
   {
     icon: Lock,
-    title: "Open Issuance",
-    desc: "Any connected wallet can issue certificates — no gatekeepers, fully decentralized.",
+    title: "Admin Controlled",
+    desc: "Only authorized admin wallets can issue new certificates, ensuring source integrity.",
     gradient: "from-purple-400 to-pink-400",
   },
   {

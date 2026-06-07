@@ -29,13 +29,13 @@ contract CertificateVerification {
         admin = msg.sender;
     }
 
-    /// @notice Add a new certificate (open to all users)
+    /// @notice Add a new certificate (admin only)
     /// @param _id Unique certificate identifier
     /// @param _hash IPFS CID or SHA-256 hash of the certificate
     function addCertificate(
         string calldata _id,
         string calldata _hash
-    ) external {
+    ) external onlyAdmin {
         if (bytes(_id).length == 0) revert EmptyId();
         if (bytes(_hash).length == 0) revert EmptyHash();
         if (exists[_id]) revert CertificateAlreadyExists(_id);

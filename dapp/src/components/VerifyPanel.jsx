@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import CertificateQRCode from "./CertificateQRCode";
 
 /* ───── Icons ───── */
 const CheckIcon = () => (
@@ -266,6 +267,14 @@ export default function VerifyPanel({ contract }) {
                       {result.hash}
                     </p>
                   </div>
+
+                  {/* ── Data-Rich QR Code ── */}
+                  {cert && result.id && (
+                    <CertificateQRCode
+                      certificate={{ ...cert, metadataHash: result.hash }}
+                      certId={result.id}
+                    />
+                  )}
 
                   {/* ── View Certificate Assets Button ── */}
                   {cert && (cert.photoUrl || cert.pdfUrl) && (
