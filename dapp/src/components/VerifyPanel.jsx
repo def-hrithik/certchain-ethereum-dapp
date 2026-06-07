@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import CertificateQRCode from "./CertificateQRCode";
+import LinkedInShareButton from "./LinkedInShareButton";
 
 /* ───── Icons ───── */
 const CheckIcon = () => (
@@ -274,6 +275,13 @@ export default function VerifyPanel({ contract }) {
                       certificate={{ ...cert, metadataHash: result.hash }}
                       certId={result.id}
                     />
+                  )}
+
+                  {/* ── LinkedIn Share Button ── */}
+                  {cert && result.id && (
+                    <div className="mt-5 flex items-center justify-center">
+                      <LinkedInShareButton certificate={cert} certId={result.id} />
+                    </div>
                   )}
 
                   {/* ── View Certificate Assets Button ── */}
