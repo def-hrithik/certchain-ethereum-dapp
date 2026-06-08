@@ -182,29 +182,29 @@ export default function AdminPanel({ contract, signer }) {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Grid Layout for Text Inputs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <InputGroup 
-                label="Name" 
-                name="name" 
-                value={formData.name} 
-                onChange={handleInputChange} 
-                placeholder="e.g., Hrithik Singh" 
-                disabled={loading} 
+              <InputGroup
+                label="Name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="e.g., Hrithik Singh"
+                disabled={loading}
               />
-              <InputGroup 
-                label="Course Name" 
-                name="courseName" 
-                value={formData.courseName} 
-                onChange={handleInputChange} 
-                placeholder="e.g., Full Stack Web Development" 
-                disabled={loading} 
+              <InputGroup
+                label="Course Name"
+                name="courseName"
+                value={formData.courseName}
+                onChange={handleInputChange}
+                placeholder="e.g., Full Stack Web Development"
+                disabled={loading}
               />
-              <InputGroup 
-                label="Institute Name" 
-                name="instituteName" 
-                value={formData.instituteName} 
-                onChange={handleInputChange} 
-                placeholder="e.g., MGM College of Engg and Technology" 
-                disabled={loading} 
+              <InputGroup
+                label="Institute Name"
+                name="instituteName"
+                value={formData.instituteName}
+                onChange={handleInputChange}
+                placeholder="e.g., MGM College of Engg and Technology"
+                disabled={loading}
               />
             </div>
 
@@ -212,16 +212,16 @@ export default function AdminPanel({ contract, signer }) {
 
             {/* File Uploads */}
             <div className="space-y-5">
-              <FileUploadGroup 
-                label="Certificate PDF File (REQUIRED)" 
-                accept=".pdf" 
+              <FileUploadGroup
+                label="Certificate PDF File (REQUIRED)"
+                accept=".pdf"
                 file={files.pdf}
                 onChange={(e) => handleFileChange(e, "pdf")}
                 disabled={loading}
               />
-              <FileUploadGroup 
-                label="Student Photo (REQUIRED)" 
-                accept="image/*" 
+              <FileUploadGroup
+                label="Student Photo (REQUIRED)"
+                accept="image/*"
                 file={files.photo}
                 onChange={(e) => handleFileChange(e, "photo")}
                 disabled={loading}
@@ -255,13 +255,12 @@ export default function AdminPanel({ contract, signer }) {
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`p-4 rounded-xl text-sm font-medium border ${
-                  txStatus.type === "success"
+                className={`p-4 rounded-xl text-sm font-medium border ${txStatus.type === "success"
                     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                     : txStatus.type === "error"
-                    ? "bg-red-500/10 text-red-400 border-red-500/20"
-                    : "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                }`}
+                      ? "bg-red-500/10 text-red-400 border-red-500/20"
+                      : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                  }`}
               >
                 {txStatus.msg}
               </motion.div>
@@ -328,12 +327,12 @@ function FileUploadGroup({ label, accept, file, onChange, disabled }) {
                           text-cyan-400 text-sm font-medium hover:bg-slate-800 transition-colors
                           ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
           Choose File
-          <input 
-            type="file" 
+          <input
+            type="file"
             accept={accept}
             onChange={onChange}
             disabled={disabled}
-            className="hidden" 
+            className="hidden"
           />
         </label>
         <span className="text-sm text-slate-500 truncate max-w-[200px] sm:max-w-xs">

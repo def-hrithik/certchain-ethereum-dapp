@@ -33,12 +33,6 @@ const fadeUp = {
   },
 };
 
-/** Simple opacity fade */
-const fadeIn = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.8 } },
-};
-
 /** Card scale-in with stagger delay */
 const scaleCard = {
   hidden: { opacity: 0, scale: 0.9, y: 20 },

@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "./components/Navbar";
 import LandingPage from "./components/LandingPage";
 import AdminPanel from "./components/AdminPanel";
+import BatchAdminPanel from "./components/BatchAdminPanel";
 import VerifyPanel from "./components/VerifyPanel";
 import { CONTRACT_ADDRESS, CONTRACT_ABI, CHAIN_ID, NETWORK_NAME } from "./contract";
 
@@ -264,6 +265,37 @@ function App() {
             <div className="relative">
               {!account && <NotConnectedOverlay />}
               <AdminPanel contract={contract} signer={signer} />
+            </div>
+
+            <footer className="mt-12 pt-6 border-t border-white/[0.06] text-center">
+              <p className="text-xs text-slate-500">
+                CertChain — Decentralized Certificate Verification on {EXPECTED_NETWORK}
+              </p>
+            </footer>
+          </motion.main>
+        )}
+
+        {/* ── Batch Issue ── */}
+        {view === "batch" && (
+          <motion.main
+            key="batch"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.35 }}
+            className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12"
+          >
+            {/* Inline wallet warning */}
+            {walletError && !walletError.startsWith("Access Denied") && (
+              <div className="mb-6 flex items-center gap-3 p-4 bg-white/5 border border-red-500/30 rounded-2xl text-sm">
+                <span className="text-red-400 text-lg">⚠️</span>
+                <span className="text-white font-medium">{walletError}</span>
+              </div>
+            )}
+
+            <div className="relative">
+              {!account && <NotConnectedOverlay />}
+              <BatchAdminPanel contract={contract} signer={signer} />
             </div>
 
             <footer className="mt-12 pt-6 border-t border-white/[0.06] text-center">

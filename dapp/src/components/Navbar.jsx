@@ -59,6 +59,31 @@ export default function Navbar({ account, chainId, onConnect, activeTab, onTabCh
           >
             Issue Certificate
           </button>
+          <button
+            onClick={() => onTabChange("batch")}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
+              activeTab === "batch"
+                ? "bg-white/10 text-cyan-400"
+                : "text-slate-400 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            {/* Layers icon — signals bulk/batch action */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-3.5 h-3.5 opacity-80"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polygon points="12 2 2 7 12 12 22 7 12 2" />
+              <polyline points="2 17 12 22 22 17" />
+              <polyline points="2 12 12 17 22 12" />
+            </svg>
+            Batch Issue
+          </button>
         </div>
 
         {/* ── Desktop wallet badge ── */}
@@ -145,6 +170,30 @@ export default function Navbar({ account, chainId, onConnect, activeTab, onTabCh
                   }`}
                 >
                   Issue Certificate
+                </button>
+                <button
+                  onClick={() => { onTabChange("batch"); setMenuOpen(false); }}
+                  className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-1.5 ${
+                    activeTab === "batch"
+                      ? "bg-white/10 text-cyan-400"
+                      : "text-slate-400 hover:text-white hover:bg-white/10 border border-white/10"
+                  }`}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-3.5 h-3.5 opacity-80"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                    <polyline points="2 17 12 22 22 17" />
+                    <polyline points="2 12 12 17 22 12" />
+                  </svg>
+                  Batch Issue
                 </button>
               </div>
 
