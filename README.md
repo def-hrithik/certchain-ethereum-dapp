@@ -52,6 +52,9 @@ A hybrid **on-chain / off-chain** DApp that lets administrators issue tamper-pro
 | 🎨 **Dark Cinematic UI** | Cyberpunk-inspired dark theme with glassmorphism cards and smooth animations |
 | 👛 **MetaMask Integration** | Wallet connection, network detection, and admin-only access enforcement |
 | 📄 **Inline Asset Viewer** | View student photos and certificate PDFs directly in the browser via IPFS gateways |
+| 📦 **Batch Issuance** | Issue up to **100 certificates in a single on-chain transaction** via a guided 3-step CSV wizard |
+| 📱 **Data-Rich QR Codes** | Each verified certificate generates a scannable QR code embedding the on-chain hash — no internet required to read |
+| 🔗 **LinkedIn Integration** | One-click "Add to LinkedIn Profile" button auto-fills course, institute, and certification ID |
 
 ---
 
@@ -131,6 +134,33 @@ Admin fills form (Name, Course, Institute) + uploads PDF & Photo
       📌 Files pinned to IPFS (permanent, globally available)
 ```
 
+### 📦 Batch Issuance (Admin — up to 100 certificates)
+
+```
+Admin uploads CSV (Name, Course, Institute, PDF_Filename, Photo_Filename)
+              │
+              ▼ Step 1 — CSV parsed & validated (PapaParse)
+              │
+              ▼ Step 2 — All referenced PDFs & Photos selected; checklist validated
+              │
+              ▼ Step 3 — Sequential backend uploads (chunks of 3)
+    ┌─────────────────────────────────────────────────────────┐
+    │  For each row:  POST /api/certificates                    │
+    │  ── Files streamed to IPFS; SHA-256 hash returned         │
+    │  ── Per-row status shown in live terminal log             │
+    └──────────┬──────────────────────────────────────────────┘
+               │  ids[], hashes[] collected
+               ▼
+    ┌──────────────────────────────────────┐
+    │  contract.addCertificateBatch(       │  ── Single MetaMask confirmation
+    │    ids[], hashes[]                   │  ── All IDs stored on-chain atomically
+    │  )                                   │
+    └──────────────────────────────────────┘
+               │
+               ▼
+      ✅ Batch confirmed — per-row Cert IDs & Tx hash displayed
+```
+
 ### 🔍 Certificate Verification (Anyone)
 
 ```
@@ -151,6 +181,8 @@ User enters Certificate ID or Hash
                │
                ▼
       ✅ "Verified on Ethereum" — full details + IPFS files displayed via gateway
+      📱 Data-rich QR code generated (offline-readable JSON payload)
+      🔗 LinkedIn "Add to Profile" button auto-populated
 
     ── OR (if ID not found on chain) ──
 
@@ -176,6 +208,9 @@ User enters Certificate ID or Hash
 | Ethers.js | 6.16.0 | Web3 provider — wallet & contract interaction |
 | Framer Motion | 12.34.2 | Page transitions, animations, expand/collapse |
 | Lucide React | 0.574.0 | Icon library |
+| qrcode.react | 4.2.0 | QR code generation from JSON certificate payloads |
+| PapaParse | 5.5.3 | Client-side CSV parsing for batch issuance wizard |
+| react-hot-toast | 2.6.0 | Non-intrusive toast notifications |
 
 ### Backend (`backend/`)
 
@@ -233,8 +268,11 @@ Blockchain/
     │   └── components/
     │       ├── LandingPage.jsx        # Cinematic hero + features page
     │       ├── Navbar.jsx             # Glass navbar with wallet badge
-    │       ├── AdminPanel.jsx         # Certificate issuance form
-    │       └── VerifyPanel.jsx        # Dual-lookup verification panel
+    │       ├── AdminPanel.jsx         # Single certificate issuance form
+    │       ├── BatchAdminPanel.jsx    # Bulk issuance — CSV wizard (NEW)
+    │       ├── VerifyPanel.jsx        # Dual-lookup verification panel
+    │       ├── CertificateQRCode.jsx  # Data-rich QR code generator (NEW)
+    │       └── LinkedInShareButton.jsx # One-click LinkedIn share (NEW)
     ├── tailwind.config.js             # Custom dark theme tokens
     └── package.json
 ```
@@ -258,7 +296,7 @@ Blockchain/
 cd Blockchain
 npm install
 
-# 📦 Frontend (React + Tailwind)
+# 📦 Frontend (React + Tailwind + PapaParse + qrcode.react)
 cd dapp
 npm install
 
@@ -275,6 +313,9 @@ Create a `.env` file in the `backend/` directory with your Pinata API credential
 # Pinata API Configuration
 PINATA_API_KEY=your_pinata_api_key_here
 PINATA_API_SECRET=your_pinata_api_secret_here
+
+# Optional: Custom IPFS gateway (defaults to Pinata public gateway)
+PINATA_GATEWAY=https://gateway.pinata.cloud/ipfs
 
 # Backend Server
 PORT=5000
@@ -379,11 +420,11 @@ npm start
 
 ## 📘 User Manual
 
-### 👨‍💼 Admin Flow — Issuing a Certificate
+### 👨‍💼 Admin Flow — Issuing a Single Certificate
 
 1. **Connect Wallet** — Click the wallet badge in the navbar. MetaMask will prompt for connection. Ensure you're on the **Ganache** network (Chain ID 1337).
 
-2. **Navigate to Admin Panel** — Click "Admin Panel" in the navbar or use the Quick Access card on the landing page.
+2. **Navigate to Admin Panel** — Click "Issue Certificate" in the navbar or use the Quick Access card on the landing page.
 
 3. **Fill the Form** —
    | Field | Example |
@@ -402,6 +443,33 @@ npm start
 
 > ⚠️ If the blockchain transaction fails, the hash remains visible. You can retry without re-uploading.
 
+### 📦 Admin Flow — Batch Issuance (up to 100 certificates)
+
+1. **Navigate to Batch Issue** — Click the "Batch Issue" tab (⛓ icon) in the navbar.
+
+2. **Step 1 — Upload CSV** — Drag and drop (or click to browse) a `.csv` file with the following columns:
+
+   ```
+   Name,Course,Institute,PDF_Filename,Photo_Filename
+   Alice Sharma,B.Tech CSE,MIT College,alice_cert.pdf,alice_photo.jpg
+   Bob Kumar,MBA Finance,IIM Ahmedabad,bob_cert.pdf,bob_photo.png
+   ```
+
+   - The system validates columns and shows a live preview of up to 5 rows.
+   - Maximum **100 rows** per batch (enforced on both frontend and smart contract).
+
+3. **Step 2 — Select Assets** — After the CSV is accepted, a file checklist appears showing every PDF and photo filename referenced. Drag and drop **all** the actual files into the dropzone in one go. The checklist turns green (✓) as each file is matched.
+
+4. **Step 3 — Process & Issue** —
+   - Click **"Start Batch Issuance"**.
+   - Files are uploaded to the backend **sequentially in chunks of 3** to avoid memory pressure on the Express/Multer server. A live terminal log shows per-row status in real time.
+   - Once all uploads complete, a **single MetaMask confirmation** is requested for `addCertificateBatch(ids, hashes)`.
+   - Upon blockchain confirmation, a per-row status table displays each Certificate ID, hash prefix, and success/error badge.
+
+5. **Done** — Click **"Start New Batch"** to reset the wizard and issue another batch.
+
+> ⚠️ If some rows fail during upload (e.g., file type mismatch), the successful rows are still submitted on-chain. Failed rows are shown with red error badges and must be re-issued individually.
+
 ### 🔍 Verifier Flow — Checking a Certificate
 
 1. **Navigate to Verify** — Click "Verify" in the navbar.
@@ -417,7 +485,11 @@ npm start
    - 📂 **Amber badge** = "Retrieved via Hash" (found in database only).
    - All metadata is displayed: Name, Course, Institute, Creation Date, IPFS CIDs, Pinata gateway URLs.
 
-5. **View Assets** — Click the "View Certificate Assets" button to expand an inline viewer. Files are retrieved from IPFS gateways and displayed directly in the browser—PDFs in an embedded reader, photos inline.
+5. **QR Code** — A data-rich QR code is automatically generated and displayed below the metadata. Scanning it with any phone camera instantly surfaces certificate details — **no internet connection required** (the full JSON payload is embedded in the code). Click **"Download QR"** to save a 512×512 PNG.
+
+6. **LinkedIn** — Click **"Add to LinkedIn"** to open LinkedIn's native "Add Certification" flow, pre-filled with the course name, institution, issue date, and a direct verification link back to this DApp.
+
+7. **View Assets** — Click the "View Certificate Assets" button to expand an inline viewer. Files are retrieved from IPFS gateways and displayed directly in the browser—PDFs in an embedded reader, photos inline.
 
 ---
 
@@ -535,11 +607,19 @@ Static file serving for uploaded PDFs and photos.
 
 **Contract:** `CertificateVerification.sol` · **Solidity** `^0.8.20`
 
+### State
+
+| Name | Type | Visibility | Description |
+|---|---|---|---|
+| `admin` | `address` | public | Deployer address — the only account that may issue certificates |
+| `MAX_BATCH_SIZE` | `uint256` constant | public | Hard cap of **100** certificates per batch transaction |
+
 ### Functions
 
 | Function | Access | Returns | Description |
 |---|---|---|---|
 | `addCertificate(string _id, string _hash)` | 🔒 Admin | — | Stores a certificate ID → hash mapping on-chain |
+| `addCertificateBatch(string[] _ids, string[] _hashes)` | 🔒 Admin | — | Issues up to 100 certificates atomically in a single transaction; validates length parity, batch cap, no on-chain duplicates, and no intra-batch duplicate IDs |
 | `verifyCertificate(string _id)` | 🌐 Public | `string` | Returns the stored hash for a given certificate ID |
 | `certificateExists(string _id)` | 🌐 Public | `bool` | Checks if a certificate ID exists on-chain |
 
@@ -547,17 +627,22 @@ Static file serving for uploaded PDFs and photos.
 
 | Event | Parameters | Description |
 |---|---|---|
-| `CertificateAdded` | `id` (indexed), `hash`, `timestamp` | Emitted when a new certificate is registered |
+| `CertificateAdded` | `id` (indexed), `hash`, `timestamp` | Emitted for every certificate registered — including each entry within a batch |
+| `BatchIssued` | `count`, `timestamp` | Emitted once per successful `addCertificateBatch` call with the total number of certificates issued |
 
 ### Custom Errors (Gas-Efficient)
 
 | Error | Trigger |
 |---|---|
 | `NotAdmin()` | Non-admin attempts to add a certificate |
-| `CertificateAlreadyExists(id)` | Duplicate certificate ID |
+| `CertificateAlreadyExists(id)` | Duplicate certificate ID — single or batch |
 | `CertificateNotFound(id)` | Lookup for non-existent ID |
 | `EmptyId()` | Empty string passed as ID |
 | `EmptyHash()` | Empty string passed as hash |
+| `BatchEmpty()` | `addCertificateBatch` called with zero-length arrays |
+| `BatchLengthMismatch()` | `_ids` and `_hashes` arrays have different lengths |
+| `BatchTooLarge(provided, maxAllowed)` | Batch exceeds `MAX_BATCH_SIZE` (100) |
+| `DuplicateIdInBatch(id)` | The same ID appears more than once within a single batch call |
 
 ---
 
@@ -585,6 +670,8 @@ CertChain uses a **dark cinematic** theme with glassmorphism and neon accents.
 | Hover effects | Tailwind + Framer | Scale, glow, gradient shifts |
 | Expand/collapse | Framer Motion | Assets viewer, status panels |
 | Glow pulse | Tailwind keyframes | Hero section accent |
+| Wizard step slides | Framer Motion | `slideVariants` x-axis transitions between batch steps |
+| Stepper connector fill | Framer Motion | Animated gradient line between completed wizard steps |
 
 ---
 
