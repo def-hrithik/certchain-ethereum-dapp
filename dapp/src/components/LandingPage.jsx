@@ -1,4 +1,5 @@
 import { useRef, useCallback } from "react";
+import Chatbot from "./Chatbot";
 import { motion, useInView } from "framer-motion";
 import {
   ShieldCheck,
@@ -439,6 +440,9 @@ export default function LandingPage({ onNavigate }) {
           </div>
         </div>
       </footer>
+
+      {/* ═══════════════════  AI CHATBOT  ═══════════════════ */}
+      <Chatbot />
     </div>
   );
 }
